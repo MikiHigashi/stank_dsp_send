@@ -183,7 +183,7 @@ char msg_sel_gd[] = {' ','u','s','e',' ','U','P',',','D','O','W','N',',','B',','
 
 // 左キャタの動き量テーブル
 // [y+4][4-x]
-uint8_t table_left[] = {
+uint8_t table_right[] = {
 // -4
 		128,96,64,32,1,1,1,1,1,
 // -3
@@ -205,7 +205,7 @@ uint8_t table_left[] = {
 };
 
 // 右キャタの動き量テーブル
-uint8_t table_right[] = {
+uint8_t table_left[] = {
 // -4
 		1,1,1,1,1,32,64,96,128,
 // -3
@@ -530,10 +530,10 @@ void main_loop(void) {
         led_on = 0;
     }
     else {
-        // 入力スロットル量を 0 to 8 に正規化 4=ニュートラル
+        // 入力スロットル量を 0 to 8 に正規化 4=ニュートラル　整数部8bit+小数部8bit
         v0 = in2std(adc_MIN_RY, adc_MID_RY, adc_MAX_RY, thro_in, CENTER, CENTER);
 
-        // 入力エルロン量を 0 to 8 に正規化 4=ニュートラル
+        // 入力エルロン量を 0 to 8 に正規化 4=ニュートラル　整数部8bit+小数部8bit
         v1 = in2std(adc_MIN_RX, adc_MID_RX, adc_MAX_RX, aile_in, CENTER, CENTER);
 
         // 入力座標周囲４点の値をキャタ移動速度テーブルのどの位置から引いてくれば良いか計算し、
@@ -556,16 +556,22 @@ void main_loop(void) {
         // テールランプ（下ＬＥＤ）点灯処理
         uint8_t led = 0;
     
-        if ((data_key[4] == 1) || (data_key[5] == 1)) { // 右側ボタンが押されていれば、
+        //if ((data_key[4] == 1) || (data_key[5] == 1)) { // 右側ボタンが押されていれば、
+        if (v0 == 0x0400) { // スロットルが中立
             led = 1;
+            uint16_t ww;
             // 超信地旋回
-            uint16_t ww = (v1 >> 3);
-            if (v1 >= 0x0800) {
-                ww = 255;
+            if (v1 > 0x400) {
+                v1 -= 0x400;
+                ww = (v1 / 11);
+                left = (uint8_t)(128 + ww);
             }
-            if (ww == 0) ww = 1;
-            right = (uint8_t)ww;
-            left = (uint8_t)((256 - ww) & 0xff);
+            else {
+                v1 = 0x400 - v1;
+                ww = (v1 / 11);
+                left = (uint8_t)(128 - ww);
+            }
+            right = (uint8_t)((256 - left) & 0xff);
             // 砲身上下動停止
             cannon = 128;
         }
@@ -1295,6 +1301,7 @@ int main(void)
 {
     uint16_t i;
     uint8_t c;
+    uint8_t pwm_fire = 0; // 射撃に伴う振動の期間
 
     // initialize the device
     SYSTEM_Initialize();
@@ -1332,10 +1339,10 @@ int main(void)
     
     get_keys();
     if (data[10]) {
-        tank = 1;
+        tank = 2;
     }
     if (data[11]) {
-        tank = 2;
+        tank = 1;
     }
     
     // TWE LITE モジュールと通信
@@ -1453,6 +1460,47 @@ int main(void)
         get_keys();
         main_loop();
 
+        if (tank == 1) { // バトルタンク
+        }
+        else if (tank == 2) { // ストームタイガー
+        }
+        else { // S-TANK
+            if (data[14]) {
+                pwm_fire = 20;
+            }
+            else if (data[13]) {
+                pwm_fire = 20;
+            }
+            else if (data[15]) {
+                pwm_fire = 60;
+            }
+            signed short p1, p2, w1, w2, f1;
+            if (pwm_fire) {
+                pwm_fire --;
+                f1 = 6400;
+            }
+            else {
+                f1 = 0;
+            }       
+            p1 = (signed short)left;
+            p1 -= 128;
+            if (p1 < 0) p1 = (-p1);
+            p1 <<= 5;
+            p2 = (signed short)turn;
+            p2 -= 128;
+            p2 <<= 4;
+            w1 = p1 - p2;
+            w2 = p1 + p2;
+            if (w1 > 6400) w1 = 6400;
+            if (w2 > 6400) w2 = 6400;
+            if (w1 < 0) w1 = 0;
+            if (w2 < 0) w2 = 0;
+            if (f1) {
+                w1 = w2 = f1;
+            }
+            PWM_DutyCycleSet(PWM_GENERATOR_1, w1);
+            PWM_DutyCycleSet(PWM_GENERATOR_2, w2);
+        }
         buz1 = data_key[1]; // TRR-D
         if (buz1) { // 押された
             if (buz0 == 0) {
@@ -1471,8 +1519,8 @@ int main(void)
             if (tank == 1) { // バトルタンク
                 if (rsv[3] != 0x82) ok = 0;
                 if (rsv[4] != 0x02) ok = 0;
-                if (rsv[5] != 0x0E) ok = 0;
-                if (rsv[6] != 0x3B) ok = 0;
+                if (rsv[5] != 0x33) ok = 0;
+                if (rsv[6] != 0xD6) ok = 0;
             }
             else if (tank == 2) { // ストームタイガー
                 ok = 0;
@@ -1480,8 +1528,8 @@ int main(void)
             else { // S-TANK
                 if (rsv[3] != 0x82) ok = 0;
                 if (rsv[4] != 0x02) ok = 0;
-                if (rsv[5] != 0x0B) ok = 0;
-                if (rsv[6] != 0x5D) ok = 0;
+                if (rsv[5] != 0x27) ok = 0;
+                if (rsv[6] != 0x03) ok = 0;
                 if (ok == 1) {
                     num_bb = rsv[17]; // 弾数
                     temper = rsv[18]; // 温度
