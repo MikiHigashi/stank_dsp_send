@@ -573,7 +573,7 @@ void main_loop(void) {
             }
             right = (uint8_t)((256 - left) & 0xff);
             // 砲身上下動停止
-            cannon = 128;
+            //cannon = 128;
         }
 
         if (v0 <= 0x0400) led = 1; // 停止またはバックなら点灯
