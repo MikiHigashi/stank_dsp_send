@@ -1514,22 +1514,22 @@ int main(void)
         // リモートセンシング
         n = get_rsv_size();
         if (n > 15) { // 受信できた
-            // シリアルIDの確認
+            // シリアルIDの確認はしない（アプリIDでのフィルターで良しとする）
             char ok = 1;
             if (tank == 1) { // バトルタンク
-                if (rsv[3] != 0x82) ok = 0;
-                if (rsv[4] != 0x02) ok = 0;
-                if (rsv[5] != 0x33) ok = 0;
-                if (rsv[6] != 0xD6) ok = 0;
+                //if (rsv[3] != 0x82) ok = 0;
+                //if (rsv[4] != 0x02) ok = 0;
+                //if (rsv[5] != 0x33) ok = 0;
+                //if (rsv[6] != 0xD6) ok = 0;
             }
             else if (tank == 2) { // ストームタイガー
-                ok = 0;
+                //ok = 0;
             }
             else { // S-TANK
-                if (rsv[3] != 0x82) ok = 0;
-                if (rsv[4] != 0x02) ok = 0;
-                if (rsv[5] != 0x27) ok = 0;
-                if (rsv[6] != 0x03) ok = 0;
+                //if (rsv[3] != 0x82) ok = 0;
+                //if (rsv[4] != 0x02) ok = 0;
+                //if (rsv[5] != 0x8D) ok = 0;
+                //if (rsv[6] != 0x8D) ok = 0;
                 if (ok == 1) {
                     num_bb = rsv[17]; // 弾数
                     temper = rsv[18]; // 温度
